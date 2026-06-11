@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>beFirst</title>
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-bg: #000000;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --text-main: #ffffff;
+            --border-clr: rgba(255, 255, 255, 0.1);
+        }
+        .light-mode {
+            --primary-bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --border-clr: #e5e7eb;
+        }
+        body { font-family: 'Quicksand', sans-serif; background-color: var(--primary-bg); color: var(--text-main); transition: 0.3s; overflow-x: hidden; }
+        .tech-font { font-family: 'Exo 2', sans-serif; }
+        
+        * { border-radius: 1.5rem; }
+        input, button, select, .card { border-radius: 1.25rem !important; }
+        
+        .app-icon-box {
+            width: 42px; height: 42px; background: black; color: white;
+            display: flex; align-items: center; justify-content: center;
+            border: 2px solid white; border-radius: 10px !important; 
+            font-weight: 700; cursor: pointer;
+        }
+
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .day-cell { aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 0.55rem; font-weight: 700; border: 1px solid var(--border-clr); cursor: pointer; }
+        
+        .page { display: none; width: 100%; max-width: 480px; margin: 0 auto; }
+        .page.active { display: block; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .progress-bg { background: var(--border-clr); border-radius: 999px !important; overflow: hidden; }
+        .progress-fill { height: 100%; transition: width 0.6s ease; }
+
+        .quote-style { font-size: 0.75rem; opacity: 0.7; font-style: italic; text-align: center; line-height: 1.5; padding: 15px 10px; }
+        
+        /* Horizontal Habit Dots */
+        .streak-dot { width: 8px; height: 8px; border-radius: 50% !important; border: 1px solid var(--border-clr); flex-shrink: 0; }
+        .day-toggle { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 10px; border: 1px solid var(--border-clr); cursor: pointer; border-radius: 50% !important; }
+        .day-toggle.selected { background: #6366f1; color: white; border-color: #6366f1; }
+
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+
+        #sync-status { font-size: 8px; font-weight: bold; text-align: center; margin-top: 2px; }
+    </style>
+</head>
+<body class="dark-mode">
+
+    <!-- Global Header -->
+    <header class="fixed top-0 left-0 right-0 h-20 flex items-center px-4 z-50 bg-black/10 backdrop-blur-md border-b border-white/5">
+        <div class="w-1/4 flex justify-start">
+            <button id="back-btn" onclick="showPage('dashboard')" class="p-2 bg-gray-500/10 hidden">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H59.31l58.35,58.34a8,8,0,0,1-11.32,11.32l-72-72a8,8,0,0,1,0-11.32l72-72a8,8,0,0,1,11.32,11.32L59.31,120H216A8,8,0,0,1,224,128Z"></path></svg>
+            </button>
+        </div>
+
+        <div onclick="showPage('dashboard')" class="w-2/4 flex items-center justify-center gap-2 cursor-pointer">
+            <div class="app-icon-box">bF</div>
+            <span class="text-xl font-bold">beFirst</span>
+        </div>
+
+        <div class="w-1/4 flex flex-col justify-center items-end">
+            <div class="flex items-center gap-2">
+                <button onclick="handleAuthClick()" id="google-btn" class="p-1 text-indigo-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="currentColor" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24ZM74.08,197.5a64,64,0,0,1,107.84,0,87.83,87.83,0,0,1-107.84,0ZM128,120a32,32,0,1,1,32-32A32,32,0,0,1,128,120Zm78.36,60.5a80,80,0,0,0-156.72,0,88,88,0,1,1,156.72,0Z"></path></svg>
+                </button>
+                <button onclick="toggleLanguage()" class="text-[9px] font-bold px-1 border border-gray-500/30 uppercase">தமிழ்/EN</button>
+                <button onclick="toggleTheme()" class="p-1">🌓</button>
+            </div>
+            <div id="sync-status" class="text-gray-500 uppercase">Offline</div>
+        </div>
+    </header>
+
+    <div class="pt-24 pb-10 px-4 min-h-screen">
+        <!-- DASHBOARD -->
+        <main id="page-dashboard" class="page active">
+            <div class="grid grid-cols-4 gap-2 mb-10">
+                <div onclick="showPage('money')" class="bg-emerald-500/10 border border-emerald-500/20 p-3 flex flex-col items-center">
+                    <span class="text-xl mb-1">💰</span><p class="text-[8px] font-bold uppercase t-money">Money</p><p id="dash-m-val" class="text-[10px] font-bold mt-1">₹0</p>
+                </div>
+                <div onclick="showPage('habit')" class="bg-indigo-500/10 border border-indigo-500/20 p-3 flex flex-col items-center">
+                    <span class="text-xl mb-1">📋</span><p class="text-[8px] font-bold uppercase t-habit">Habit</p><p id="dash-h-val" class="text-[10px] font-bold mt-1">0/0</p>
+                </div>
+                <div onclick="showPage('goal')" class="bg-purple-500/10 border border-purple-500/20 p-3 flex flex-col items-center">
+                    <span class="text-xl mb-1">🎯</span><p class="text-[8px] font-bold uppercase t-goal">Goal</p><p id="dash-g-val" class="text-[10px] font-bold mt-1">0/0</p>
+                </div>
+                <div onclick="showPage('water')" class="bg-sky-500/10 border border-sky-500/20 p-3 flex flex-col items-center">
+                    <span class="text-xl mb-1">💧</span><p class="text-[8px] font-bold uppercase t-water">Water</p><p id="dash-w-val" class="text-[10px] font-bold mt-1">0%</p>
+                </div>
+            </div>
+            <div class="text-center mt-20 px-6"><p class="tech-font text-sm font-semibold t-dash-quote-1">Little choices shape your future.</p></div>
+        </main>
+
+        <!-- MONEY -->
+        <main id="page-money" class="page space-y-6">
+            <div class="bg-emerald-600 p-6 text-center text-white shadow-xl">
+                <p class="text-[10px] uppercase font-bold t-balance">Balance</p>
+                <h2 id="m-total-bal" class="text-4xl font-bold">₹0</h2>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="openModal('income')" class="flex-1 bg-emerald-500 text-white p-4 font-bold t-add-inc">Earnings</button>
+                <button onclick="openModal('expense')" class="flex-1 bg-red-500 text-white p-4 font-bold t-add-exp">Spend</button>
+            </div>
+            <div class="bg-white/5 p-4 border border-clr">
+                <div id="cal-money" class="cal-grid"></div>
+                <div id="money-day-detail" class="mt-4 p-3 bg-black/20 rounded-xl text-xs space-y-1 hidden border border-white/5"></div>
+            </div>
+            <p class="quote-style tech-font t-money-msg">Spend wisely today to live freely tomorrow.</p>
+            <button onclick="exportExcel()" class="w-full py-3 bg-gray-500/10 text-[10px] font-bold t-excel">Export Excel</button>
+        </main>
+
+        <!-- HABIT -->
+        <main id="page-habit" class="page space-y-6">
+            <button onclick="openModal('habit')" class="w-full bg-indigo-600 text-white p-5 font-bold shadow-lg t-add-habit">+ Add Habit</button>
+            <div id="habit-list" class="space-y-2"></div>
+            <div class="bg-white/5 p-4 border border-clr">
+                <p class="text-[10px] uppercase font-bold mb-3 opacity-50 t-history">Monthly Heatmap</p>
+                <div id="cal-habit" class="cal-grid"></div>
+            </div>
+            <p class="quote-style tech-font t-habit-msg">Trust your process and stay consistent.</p>
+        </main>
+
+        <!-- GOAL -->
+        <main id="page-goal" class="page space-y-6">
+            <button onclick="openModal('goal')" class="w-full bg-purple-600 text-white p-5 font-bold shadow-lg t-add-goal">+ Set Goal</button>
+            <div id="goal-list" class="space-y-4"></div>
+            <p class="quote-style tech-font t-goal-msg">Progress happens one day at a time.</p>
+        </main>
+
+        <!-- WATER -->
+        <main id="page-water" class="page space-y-6 text-center">
+            <div class="bg-sky-500/10 p-6 border border-sky-500/20">
+                <p class="text-[10px] uppercase font-bold text-sky-400 mb-4 t-water-target">Daily Target</p>
+                <div class="flex items-center justify-center gap-1 mb-4">
+                    <input type="number" id="water-limit" value="2000" oninput="updateWaterUI()" class="bg-transparent text-3xl font-bold text-sky-400 text-center w-24 outline-none">
+                    <span class="text-sky-400 font-bold text-sm">ml</span>
+                </div>
+                <div class="progress-bg h-3 w-full mt-4"><div id="water-bar" class="progress-fill bg-sky-500" style="width: 0%"></div></div>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+                <button onclick="addWater(100)" class="bg-white/5 p-4 text-xs font-bold border border-clr">100ml</button>
+                <button onclick="addWater(250)" class="bg-white/5 p-4 text-xs font-bold border border-clr">250ml</button>
+                <button onclick="addWater(500)" class="bg-white/5 p-4 text-xs font-bold border border-clr">500ml</button>
+            </div>
+            <div id="cal-water" class="cal-grid p-2 border border-clr"></div>
+            <p class="quote-style tech-font t-water-msg">Hydrate your body, clear your mind</p>
+        </main>
+    </div>
+
+    <!-- MODAL -->
+    <div id="modal" class="fixed inset-0 bg-black/95 hidden items-center justify-center p-6 z-[100]">
+        <div class="bg-gray-900 w-full max-w-sm p-8 border border-white/10 shadow-2xl overflow-y-auto max-h-[90vh]">
+            <h3 id="modal-title" class="text-xl font-bold mb-6 text-center text-white"></h3>
+            <div id="modal-body" class="space-y-4"></div>
+            <div class="flex gap-3 mt-8">
+                <button onclick="closeModal()" class="flex-1 p-4 bg-gray-800 text-white font-bold t-cancel">Cancel</button>
+                <button id="modal-action" class="flex-1 p-4 bg-white text-black font-bold t-save">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Google Identity Services -->
+    <script src="https://apis.google.com/js/api.js"></script>
+
+    <script>
+        const CLIENT_ID = '188792270240-hess4mreiftra830easg15p7l0cu959l.apps.googleusercontent.com';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
+
+        let db = { 
+            money: [], habits: [], goals: [], water: { limit: 2000, intake: [] }, 
+            settings: { lang: 'ta', theme: 'dark' } 
+        };
+
+        let accessToken = null;
+
+        const translations = {
+            en: {
+                money: "Money", habit: "Habit", goal: "Goal", water: "Water", balance: "Balance",
+                addInc: "Earnings", addExp: "Spend", excel: "Export Excel", addHabit: "Add Habit",
+                addGoal: "Set Goal", history: "Records", cancel: "Cancel", save: "Save",
+                dashQuote1: "Little choices shape your future.",
+                moneyMsg: "Spend wisely today to live freely tomorrow.",
+                habitMsg: "Trust your process and stay consistent.",
+                goalMsg: "Progress happens one day at a time.",
+                waterMsg: "Hydrate your body, clear your mind",
+                waterTarget: "Daily Target", restDay: "Rest Day", on: "On", left: "Left",
+                mCats: ['Salary', 'Food', 'Transport', 'Rent', 'Bills', 'Health', 'Gift'],
+                weekDays: ['S','M','T','W','T','F','S'], phName: "Name", phAmt: "Amount"
+            },
+            ta: {
+                money: "ரூபாய்", habit: "பழக்கம்", goal: "இலக்கு", water: "நீர்", balance: "இருப்பு",
+                addInc: "வருமானம்", addExp: "செலவு", excel: "எக்செல்", addHabit: "புதிய பழக்கம்",
+                addGoal: "புதிய லட்சியம்", history: "வரலாறு", cancel: "ரத்து", save: "சேமி",
+                dashQuote1: "சிறு தேர்வுகள் உங்கள் எதிர்காலத்தை வடிவமைக்கின்றன.",
+                moneyMsg: "நாளை சுதந்திரமாக வாழ இன்று விவேகமாகச் செலவிடுங்கள்.",
+                habitMsg: "உங்கள் செயல்பாட்டில் நம்பிக்கை வைத்து உறுதியாக இருங்கள்.",
+                goalMsg: "ஒவ்வொரு நாளும் முன்னேற்றம் ஏற்படும்.",
+                waterMsg: "உங்கள் உடலை நீரேற்றமாக வைத்திருங்கள், உங்கள் மனதை தெளிவுபடுத்துங்கள்",
+                waterTarget: "தினசரி இலக்கு", restDay: "ஓய்வு நாள்", on: "ஆன்", left: "மீதமுள்ளது",
+                mCats: ['சம்பளம்', 'உணவு', 'பயணம்', 'வாடகை', 'பில்கள்', 'மருத்துவம்', 'மற்றவை'],
+                weekDays: ['ஞா','தி','செ','பு','வி','வெ','ச'], phName: "பெயர்", phAmt: "தொகை"
+            }
+        };
+
+        // --- AUTH & SYNC LOGIC ---
+        function handleAuthClick() {
+            const client = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID, scope: SCOPES,
+                callback: (resp) => {
+                    accessToken = resp.access_token;
+                    document.getElementById('google-btn').classList.add('text-green-500');
+                    document.getElementById('sync-status').innerText = "Connected";
+                    syncFromDrive();
+                },
+            });
+            client.requestAccessToken();
+        }
+
+        async function syncToDrive() {
+            if (!accessToken) return;
+            try {
+                const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='befirst_data.json'&spaces=appDataFolder`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                const searchData = await searchRes.json();
+                const fileContent = JSON.stringify(db);
+                
+                let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=media';
+                let method = 'POST';
+                
+                if (searchData.files.length > 0) {
+                    url = `https://www.googleapis.com/upload/drive/v3/files/${searchData.files[0].id}?uploadType=media`;
+                    method = 'PATCH';
+                } else {
+                    const metadata = { name: 'befirst_data.json', parents: ['appDataFolder'] };
+                    // Complex multipart upload for first time creation usually needed, 
+                    // but for simplicity on this tool we use metadata search first.
+                }
+
+                await fetch(url, {
+                    method: method,
+                    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                    body: fileContent
+                });
+                document.getElementById('sync-status').innerText = "Synced";
+            } catch (e) { document.getElementById('sync-status').innerText = "Sync Error"; }
+        }
+
+        async function syncFromDrive() {
+            if (!accessToken) return;
+            const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='befirst_data.json'&spaces=appDataFolder&fields=files(id)`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            const searchData = await searchRes.json();
+            if (searchData.files.length > 0) {
+                const getRes = await fetch(`https://www.googleapis.com/drive/v3/files/${searchData.files[0].id}?alt=media`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                const driveDb = await getRes.json();
+                if (driveDb) { db = driveDb; updateUI(); }
+            }
+        }
+
+        // --- PAGE LOGIC ---
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('page-' + pageId).classList.add('active');
+            document.getElementById('back-btn').classList.toggle('hidden', pageId === 'dashboard');
+            updateUI();
+            window.scrollTo(0,0);
+        }
+
+        function toggleTheme() {
+            db.settings.theme = db.settings.theme === 'dark' ? 'light' : 'dark';
+            document.body.className = db.settings.theme + '-mode';
+            updateUI();
+        }
+
+        function toggleLanguage() {
+            db.settings.lang = db.settings.lang === 'en' ? 'ta' : 'en';
+            updateUI();
+        }
+
+        function updateUI() {
+            const t = translations[db.settings.lang];
+            const translate = (cl, key) => document.querySelectorAll(cl).forEach(el => el.innerText = t[key]);
+            ['money','habit','goal','water','balance','addInc','addExp','addHabit','addGoal','history','cancel','save','dashQuote1','moneyMsg','habitMsg','goalMsg','waterMsg','waterTarget'].forEach(k => translate('.t-'+k, k));
+
+            let bal = 0; db.money.forEach(m => bal += (m.type === 'income' ? m.amount : -m.amount));
+            document.getElementById('m-total-bal').innerText = `₹${bal.toLocaleString()}`;
+            document.getElementById('dash-m-val').innerText = `₹${bal.toLocaleString()}`;
+            
+            const today = new Date().toISOString().split('T')[0];
+            const activeToday = db.habits.filter(h => h.days.includes(new Date().getDay())).length;
+            const doneToday = db.habits.filter(h => h.days.includes(new Date().getDay()) && h.history[today]).length;
+            document.getElementById('dash-h-val').innerText = `${doneToday}/${activeToday}`;
+            
+            renderLists();
+            renderCalendars();
+            updateWaterUI();
+            
+            localStorage.setItem('beFirst_final_v1', JSON.stringify(db));
+            if (accessToken) syncToDrive();
+        }
+
+        function renderLists() {
+            const today = new Date().toISOString().split('T')[0];
+            const now = new Date();
+            const todayIdx = now.getDay();
+            const t = translations[db.settings.lang];
+
+            // Horizontal Habit List
+            document.getElementById('habit-list').innerHTML = db.habits.map(h => {
+                const isDoneToday = h.history[today];
+                const isOnToday = h.days.includes(todayIdx);
+                let dotsHtml = '';
+                for(let i=6; i>=0; i--) {
+                    const d = new Date(now.getTime() - (i * 86400000)).toISOString().split('T')[0];
+                    dotsHtml += `<div class="streak-dot ${h.history[d] ? 'bg-green-500 border-green-500' : 'bg-gray-800'}"></div>`;
+                }
+                return `<div class="bg-white/5 p-3 border border-clr flex items-center gap-3 ${!isOnToday ? 'opacity-30' : ''}">
+                    <p class="font-bold text-xs truncate w-20 ${isDoneToday ? 'text-green-500' : ''}">${h.name}</p>
+                    <div class="flex flex-1 justify-center gap-1">${dotsHtml}</div>
+                    <button ${!isOnToday ? 'disabled' : ''} onclick="toggleHabit('${h.id}')" class="w-10 h-10 ${isDoneToday ? 'bg-green-500 text-white' : 'bg-gray-800'} text-xs font-bold shrink-0">
+                        ${isDoneToday ? '✓' : '○'}
+                    </button>
+                </div>`;
+            }).join('');
+
+            // Goal List
+            document.getElementById('goal-list').innerHTML = db.goals.map(g => {
+                const target = new Date(g.date + 'T' + g.time);
+                const diff = target - now;
+                const daysLeft = Math.max(0, Math.ceil(diff / 86400000));
+                const totalDur = target - new Date(g.created);
+                const perc = Math.max(0, Math.min(100, 100 - (diff / totalDur * 100)));
+                return `<div class="bg-white/5 p-4 border border-clr space-y-2">
+                    <div class="flex justify-between font-bold text-sm"><span>${g.name}</span><span class="text-purple-400 text-xs">${daysLeft}d ${t.left}</span></div>
+                    <div class="progress-bg h-1.5"><div class="progress-fill bg-purple-500" style="width: ${perc}%"></div></div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderCalendars() {
+            const now = new Date();
+            const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+            
+            const mEl = document.getElementById('cal-money'); mEl.innerHTML = '';
+            for(let i=1; i<=days; i++) {
+                const d = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+                const hasExp = db.money.some(m => m.date.startsWith(d) && m.type === 'expense');
+                mEl.innerHTML += `<div onclick="showMoneyDetail('${d}')" class="day-cell ${hasExp ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-gray-500/10 text-gray-500'}">${i}</div>`;
+            }
+
+            const hEl = document.getElementById('cal-habit'); hEl.innerHTML = '';
+            for(let i=1; i<=days; i++) {
+                const dDate = new Date(now.getFullYear(), now.getMonth(), i);
+                const dStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+                const activeOnDay = db.habits.filter(h => h.days.includes(dDate.getDay())).length;
+                const doneOnDay = db.habits.filter(h => h.days.includes(dDate.getDay()) && h.history[dStr]).length;
+                let clr = 'bg-gray-500/10 text-gray-500';
+                if(activeOnDay > 0 && doneOnDay > 0) {
+                    if(doneOnDay === activeOnDay) clr = 'bg-green-500 text-white border-green-500';
+                    else if(doneOnDay >= activeOnDay/2) clr = 'bg-orange-500 text-white border-orange-500';
+                    else clr = 'bg-red-500 text-white border-red-500';
+                }
+                hEl.innerHTML += `<div class="day-cell ${clr}">${i}</div>`;
+            }
+
+            const wEl = document.getElementById('cal-water'); wEl.innerHTML = '';
+            for(let i=1; i<=days; i++) {
+                const dStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+                const ml = db.water.intake.filter(w => w.date.startsWith(dStr)).reduce((a,b) => a + b.ml, 0);
+                wEl.innerHTML += `<div class="day-cell bg-white/5 text-sky-400 flex flex-col leading-none"><span>${i}</span><span style="font-size:6px">${ml > 0 ? (ml >= 1000 ? (ml/1000).toFixed(1)+'L' : ml) : ''}</span></div>`;
+            }
+        }
+
+        function showMoneyDetail(date) {
+            const detail = document.getElementById('money-day-detail');
+            const dayLogs = db.money.filter(m => m.date.startsWith(date));
+            if(dayLogs.length === 0) { detail.classList.add('hidden'); return; }
+            detail.classList.remove('hidden');
+            detail.innerHTML = `<p class="font-bold border-b border-white/10 pb-1 mb-1">${date}</p>` + 
+                dayLogs.map(m => `<div class="flex justify-between"><span>${m.name}</span><span class="${m.type==='income'?'text-emerald-400':'text-red-400'}">${m.type==='income'?'+':'-'}₹${m.amount}</span></div>`).join('');
+        }
+
+        function toggleHabit(id) {
+            const today = new Date().toISOString().split('T')[0];
+            const h = db.habits.find(x => x.id == id);
+            h.history[today] = !h.history[today];
+            updateUI();
+        }
+
+        function addWater(ml) { db.water.intake.push({ ml, date: new Date().toISOString() }); updateUI(); }
+        function updateWaterUI() {
+            const today = new Date().toISOString().split('T')[0];
+            const intake = db.water.intake.filter(i => i.date.startsWith(today)).reduce((a,b) => a + b.ml, 0);
+            const limitVal = parseInt(document.getElementById('water-limit').value || 2000);
+            db.water.limit = limitVal;
+            const perc = Math.min(100, (intake / limitVal) * 100);
+            document.getElementById('dash-w-val').innerText = Math.round(perc) + '%';
+            document.getElementById('water-bar').style.width = perc + '%';
+        }
+
+        function openModal(type) {
+            const t = translations[db.settings.lang];
+            const m = document.getElementById('modal');
+            const body = document.getElementById('modal-body');
+            m.classList.replace('hidden', 'flex');
+            document.getElementById('modal-title').innerText = t[type === 'income' ? 'addInc' : (type === 'habit' ? 'addHabit' : (type === 'goal' ? 'addGoal' : 'addExp'))];
+
+            let html = `<input type="text" id="i-name" placeholder="${t.phName}" class="w-full p-4 bg-gray-100 text-black outline-none">`;
+            if(type === 'income' || type === 'expense') {
+                html += `<select id="i-cat" class="w-full p-4 bg-gray-100 text-black outline-none">${t.mCats.map(c => `<option value="${c}">${c}</option>`).join('')}</select>
+                         <input type="number" id="i-amt" placeholder="${t.phAmt}" class="w-full p-4 bg-gray-100 text-black">
+                         <input type="datetime-local" id="i-time" class="w-full p-4 bg-gray-100 text-black">`;
+            } else if (type === 'habit') {
+                html += `<div class="flex justify-between gap-1 mt-2">
+                            ${t.weekDays.map((day, i) => `<div class="day-toggle selected" data-idx="${i}" onclick="this.classList.toggle('selected')">${day}</div>`).join('')}
+                         </div>`;
+            } else {
+                html += `<input type="date" id="i-date" class="w-full p-4 bg-gray-100 text-black outline-none">
+                         <input type="time" id="i-time" class="w-full p-4 bg-gray-100 text-black outline-none">`;
+            }
+            body.innerHTML = html;
+            if(document.getElementById('i-time')) document.getElementById('i-time').value = (type.includes('income') || type.includes('expense') ? new Date().toISOString().slice(0,16) : "08:00");
+            if(document.getElementById('i-date')) document.getElementById('i-date').value = new Date().toISOString().split('T')[0];
+
+            document.getElementById('modal-action').onclick = () => {
+                const name = document.getElementById('i-name').value; if(!name) return;
+                if(type === 'income' || type === 'expense') {
+                    db.money.push({ id: Date.now(), name, amount: parseFloat(document.getElementById('i-amt').value || 0), date: document.getElementById('i-time').value, type });
+                } else if(type === 'habit') {
+                    const days = Array.from(document.querySelectorAll('.day-toggle.selected')).map(el => parseInt(el.dataset.idx));
+                    db.habits.push({ id: Date.now(), name, days: days, history: {} });
+                } else {
+                    db.goals.push({ id: Date.now(), name, date: document.getElementById('i-date').value, time: document.getElementById('i-time').value, created: Date.now(), history: {} });
+                }
+                closeModal(); updateUI();
+            };
+        }
+
+        function closeModal() { document.getElementById('modal').classList.replace('flex', 'hidden'); }
+        function exportExcel() {
+            const ws = XLSX.utils.json_to_sheet(db.money);
+            const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Finance"); XLSX.writeFile(wb, "beFirst_Export.xlsx");
+        }
+
+        window.onload = () => {
+            const local = localStorage.getItem('beFirst_final_v1');
+            if(local) db = JSON.parse(local);
+            document.body.className = db.settings.theme + '-mode';
+            updateUI();
+        };
+    </script>
+</body>
+</html>
